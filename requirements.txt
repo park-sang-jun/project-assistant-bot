@@ -72,6 +72,5 @@ w3lib==1.19.0
 warcio==1.6.1
 zope.interface==4.5.0
 wordnet
-reuters
 spacy
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.0.0/en_core_web_sm-2.0.0.tar.gz
