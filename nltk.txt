@@ -1,2 +1,2 @@
 wordnet
-spacy
+sent_tokenize
