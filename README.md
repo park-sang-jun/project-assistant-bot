@@ -28,4 +28,4 @@ Please vote and like us on [Devpost](https://devpost.com/software/project-assist
 [Xiao Yilin](https://github.com/hotarumin)
 
 
-We are a group of Year 2 Computer Science students from the National University of Singapore
+We are a group of Year 2 Computer Science students from the National University of Singapore (NUS).
