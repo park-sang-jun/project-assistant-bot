@@ -1,17 +1,22 @@
-#telegram modules
+# telegram modules
 import telegram
-from telegram.ext import Updater,CommandHandler, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import InlineQueryHandler
-import logging 
-#other modules
-from googlesearch import search #pip install google
-from newsplease import NewsPlease #pip install news-please
+import logging
+# other modules
+from googlesearch import search  # pip3 install google
+from newsplease import NewsPlease  # pip3 install news-please
 import requests
 from urllib.parse import urlparse
 import nltk
+from nltk.tokenize import sent_tokenize
 from nltk.corpus import wordnet
 from gensim.summarization.summarizer import summarize
+import time
+import re
+import spacy # pip3 install -U spacy | python -m spacy download en
+import datetime
 
 #########################telegram#########################
 bot_token = '622777049:AAEmGczXqFjMD1Jkr0n9WOdRydfWIcj_slI'
@@ -46,7 +51,7 @@ def google(bot, update, args):
 	bot.send_message(chat_id=update.message.chat_id, text=filtered_list)
 	print(query)
 '''
-#return defintion ***implement check word ==1
+#return defintion ***need to implement check word ==1
 def define(bot, update, args):
 	word = ' '.join(args)
 	text_def = define_word(word)
@@ -55,8 +60,19 @@ def define(bot, update, args):
 #print raw content in the url ***optional
 def rdisplay(bot, update, args):
 	url_link =  ' '.join(args)
-	raw_content = print_article(url_link)
-	bot.send_message(chat_id=update.message.chat_id, text=raw_content)
+	title, raw_content = extract_article(url_link)
+	if(title == "0" and raw_content == "0"):
+		bot.send_message(chat_id=update.message.chat_id, text="Unable to access the URL")
+	elif(raw_content == "0"):	
+		bot.send_message(chat_id=update.message.chat_id, text="No content is read")
+	elif(raw_content == None):	
+		bot.send_message(chat_id=update.message.chat_id, text="Unable to retrive content: Perhaps it's too long")
+	else:
+		if(title == "0"):
+			content = raw_content
+		else:
+			content = title + "\n" + raw_content
+		text_splitter(bot, update, content)
 
 #return available functions
 def help(bot, update):
@@ -66,11 +82,74 @@ def help(bot, update):
 								"/define to get the definition of a word \n"
 								"/help to display all commands")
 
-#return summary of the text
+#similarity check
+
+
+###raw text from url summary
+#return summary of the raw text from the link
 def summary(bot, update, args):
-	text = ' '.join(args)
-	summary = "Summary:\n" + summarize(text)
-	bot.send_message(chat_id=update.message.chat_id, text=summary)
+	url_link =  ' '.join(args)
+	title, raw_content = extract_article(url_link)
+	if(title == "0" and raw_content == "0"):
+		bot.send_message(chat_id=update.message.chat_id, text="Unable to access the URL")
+	elif(raw_content == "0"):	
+		bot.send_message(chat_id=update.message.chat_id, text="No content is read")
+	elif(raw_content == None):	
+		bot.send_message(chat_id=update.message.chat_id, text="Unable to retrive content: Perhaps it's too long")
+	else:	
+		summary = summarize(raw_content)
+		analysed_text = "Title: " + title + "\nSummary:\n" + summary
+		original_len = count_words(raw_content)
+		summarised_len = count_words(summary)
+		if(summarised_len>=original_len):
+			bot.send_message(chat_id=update.message.chat_id, text="Fail to summarize: Perhaps your content is too short or using too big chunk sentence(s)")
+		else:
+			#prevent overflooding
+			text_splitter(bot, update, analysed_text)
+			data_text = "\nOriginal Length: " + str(original_len) + "words\nSummary length: " + str(summarised_len) + "words\nProportion from original length:" + str(summarised_len/original_len)
+			bot.send_message(chat_id=update.message.chat_id, text=data_text)
+
+#return customised summary of the raw text from the link **first arg as input nearest word limit
+def csummary(bot, update, args):
+	url_link =  ' '.join(args[1:])
+	title, raw_content = extract_article(url_link)
+	if(title == "0" and raw_content == "0"):
+		bot.send_message(chat_id=update.message.chat_id, text="Unable to access the URL")
+	elif(raw_content == "0"):	
+		bot.send_message(chat_id=update.message.chat_id, text="No content is read")
+	elif(raw_content == None):	
+		bot.send_message(chat_id=update.message.chat_id, text="Unable to retrive content: Perhaps it's too long")
+	else:	
+		summary = summarize(raw_content,0.5,int(args[0]))		
+		analysed_text = "Title: " + title + "\nSummary:\n" + summary
+		original_len = count_words(raw_content)
+		summarised_len = count_words(summary)
+		if(summarised_len>=original_len):
+			bot.send_message(chat_id=update.message.chat_id, text="Fail to summarize: Perhaps your content is too short or using too big chunk sentence(s)")
+		else:
+			#prevent overflooding
+			text_splitter(bot, update, analysed_text)
+			data_text = "\nOriginal Length: " + str(original_len) + " words\nSummary length: " + str(summarised_len) + " words\nProportion from original length:" + str(summarised_len/original_len)
+			bot.send_message(chat_id=update.message.chat_id, text=data_text)
+
+###citation handling
+#return APA style citation
+def apa_citation(bot, update, args):
+	url_links =  ''.join(args)
+	citation_list = apacitationforlist(url_links)
+	try:
+		bot.send_message(chat_id=update.message.chat_id, text=citation_list)
+	except:
+		bot.send_message(chat_id=update.message.chat_id, text="Pls try feeding less URL links")	
+
+#return MLA style citation
+def mla_citation(bot, update, args):
+	url_links =  ''.join(args)
+	citation_list = mlacitationforlist(url_links)
+	try:
+		bot.send_message(chat_id=update.message.chat_id, text=citation_list)
+	except:
+		bot.send_message(chat_id=update.message.chat_id, text="Pls try feeding less URL links")	
 
 #########################others#########################
 '''
@@ -117,23 +196,174 @@ def define_word(word):
 	return definitions
 
 #print article through url if can request
-def print_article(url):
+def extract_article(url):
 	request = requests.get(url)
 	if request.status_code < 400:
 		article = NewsPlease.from_url(url)
 		if article.title == None and article.text == None:
-			return "0"
+			return "0", "0"
 		else:
 		   	#print(article.title)
 		   	#print(article.text)
-			text = article.tite + "\n" + article.text
-			return text
+			return article.title, article.text
 	elif request.status_code == 403 or request.status_code == 401:
 		print("The website is not allowing us to access it. . .")
-		return "0"
+		return "0", "0"
 	else:
 		print("URL is invalid!")
-		return "0"
+		return "0", "0"
+
+#return the number of words 
+def count_words(words):
+	return len(re.findall(r'\w+', words))
+###citation
+#input and output list of MLA format citations
+def mlacitationforlist(multipleurls):
+	mylist = multipleurls.split(",")
+	length = len(mylist)
+	message = ""
+
+	for x in range(length):
+		message = message + str(x + 1) + ". "
+		myurl = mylist[x]
+		request = requests.get(myurl)
+		if request.status_code < 400:
+			article = NewsPlease.from_url(mylist[x])
+			if article.authors == None or article.title == None:
+				message += "There is not enough information to make a citation."
+				message += "\n"
+			else:
+				if len(article.authors) != 0:
+					message += mlacitation(article.authors[0], article.title, myurl)
+					message += "\n"
+				else:
+					message += "We could not find an author."
+					message += "\n"
+		else:
+			message += "The website you requested is not available or does not exist."
+			message += "\n"
+	print(message)
+	return message
+
+
+def mlacitation(author, title, url):
+    now = datetime.datetime.now()
+    today = now.strftime("%d %B %Y")
+    name = getmlaname(author)
+    return name + '"' + title + '."' + " Web. " + today + ". "
+
+def getmlaname(name):
+	words = name.split(" ")
+	length = len(words)
+	mlaname = words[length - 1] + " "
+
+	for x in range(length - 1):
+		if x == length - 2:
+			mlaname += words[x]
+		else:
+			mlaname += words[x]
+			mlaname += " "
+	return(mlaname)
+
+#input and output list of APA format citations
+def apacitationforlist(multipleurls):
+	mylist = multipleurls.split(",")
+	length = len(mylist)
+	message = ""
+
+	for x in range(length):
+		message = message + str(x + 1) + ". "
+		myurl = mylist[x]
+		request = requests.get(myurl)
+		if request.status_code < 400:
+			article = NewsPlease.from_url(mylist[x])
+			if article.authors == None or article.title == None:
+				message += "There is not enough information to make a citation."
+				message += "\n"
+			else:
+				if len(article.authors) != 0:
+					message += apacitation(article.authors[0], article.title, myurl)
+					message += "\n"
+				else:
+					message += "We could not find an author."
+					message += "\n"
+		else:
+			message += "The website you requested is not available or does not exist."
+			message += "\n"
+	print(message)
+	return message
+
+
+def apacitation(author, title, url):
+    now = datetime.datetime.now()
+    today = now.strftime("%B %d, %Y")
+    name = getapaname(author)
+    return name + title + ". Retrieved " + today + ", from " + url
+
+
+def getapaname(name):
+	words = name.split(" ")
+	length = len(words)
+	mlaname = words[length - 1] + ", "
+	for x in range(length - 1):
+		mlaname += words[x][0]
+		mlaname += ". "
+
+	return(mlaname)
+
+###document comparision
+#Jaccard similarity: duplication does not matter
+def jaccard_sim(str1, str2): 
+	a = set(str1.split()) 
+	b = set(str2.split())
+	c = a.intersection(b)
+	return float(len(c)) / (len(a) + len(b) - len(c))
+
+#cosine similarity: duplication matters | utilizing spacy
+def cosine_sim(str1,str2):
+	nlp = spacy.load('en')
+	doc1 = nlp(str1)
+	doc2 = nlp(str2)
+	return doc1.similarity(doc2)
+
+###to prevent overflooding to telegram
+#split text 
+def text_splitter(bot, update, text):
+	# Counter to keep track of messages being sent.
+	# This is necessary to prevent flooding.
+	counter = 0
+
+	# The character limit of a telegram message.
+	limit = 4080
+	limit_send = 25
+	length = len(text)
+	div = length / limit + 1
+
+	segment = divide_string(text, limit)
+
+	for i in segment:
+		bot.send_message(chat_id=update.message.chat_id, text=i)
+		counter += 1
+	if counter == limit_send:
+		counter = 0
+		time.sleep(1)
+
+# Put divideString function here
+def divide_string(text, limit):
+	lst = []
+	sentencelist = sent_tokenize(text)
+	counter = 0
+	messagetray = ""
+	for sentence in sentencelist:
+		counter += len(sentence)
+	if counter < limit:
+		messagetray += sentence
+	else:
+		lst.append(messagetray)
+		messagetray = sentence
+		counter = len(sentence)
+	lst.append(messagetray)
+	return lst
 
 #########################main#########################
 def main():
@@ -152,14 +382,26 @@ def main():
 	#cmd: /rdisplay | display raw content
 	rdisplay_handler = CommandHandler('rdisplay', rdisplay, pass_args=True)
 	dispatcher.add_handler(rdisplay_handler)
-
-	#cmd: /sum | summarize 
-	summary_handler = CommandHandler('summary', summary, pass_args=True)
+	
+	#cmd: /sum | summarize raw content from url
+	summary_handler = CommandHandler('sum', summary, pass_args=True)
 	dispatcher.add_handler(summary_handler)
 
+	#cmd: /csum | summarize raw content from url with nearest word limit as first input
+	csummary_handler = CommandHandler('csum', csummary, pass_args=True)
+	dispatcher.add_handler(csummary_handler)
+	
+	#cmd: /apa | construct APA citation style
+	apa_handler = CommandHandler('apa', apa_citation, pass_args=True)
+	dispatcher.add_handler(apa_handler)
+
+	#cmd: /mla | construct MLA citation style
+	mla_handler = CommandHandler('mla', mla_citation, pass_args=True)
+	dispatcher.add_handler(mla_handler)
+
 	#cmd: /help | return available functions
-	#help_handler = CommandHandler('help', help)
-	#dispatcher.add_handler(help_handler)
+	help_handler = CommandHandler('help', help)
+	dispatcher.add_handler(help_handler)
 
 	#unregistered cmd handler
 	unknown_handler = MessageHandler(Filters.command, unknown)
