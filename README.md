@@ -1,4 +1,5 @@
 # reee-searcher bot
+This project is for iNTUition2018.
 
 In this project, we have used python libraries and our own algorithms to summarise and get references for articles/papers by their URL.
 
@@ -13,7 +14,7 @@ Type `/help` to get the list of commands.
 You are ready to use the bot!
 
 
-**Made by**
+## Made by ##
 [Ahn Tae Gyu](https://github.com/truegitnovice)
 
 [Park Sang Jun](https://github.com/park-sang-jun)
