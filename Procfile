@@ -1,1 +1,1 @@
-web: python venv/telebot.py
+web: python ../venv/telebot.py
