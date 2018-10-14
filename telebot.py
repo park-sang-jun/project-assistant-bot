@@ -19,7 +19,7 @@ import spacy # pip3 install -U spacy | python -m spacy download en
 import datetime
 
 #########################telegram#########################
-bot_token = '622777049:AAEmGczXqFjMD1Jkr0n9WOdRydfWIcj_slI'
+bot_token = '662878959:AAFSf5bx_bbKH99Bbz-x7SuYPu59R4FY_wA'
 bot = telegram.Bot(token=bot_token)
 #bot credential
 #print(bot.get_me())
