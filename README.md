@@ -7,7 +7,7 @@ In this project, we have used python libraries and our own algorithms to summari
 
 **Pre-requisites**
 1. You will need to have [Telegram](https://desktop.telegram.org/) installed on your computer or your mobile device.
-2. Add the bot (named "reeesearcherbot") to any chat.
+2. Add the bot (named "reeesearcher_bot") to any chat.
 
 ## Usage ##
 Type `/help` to get the list of commands.
