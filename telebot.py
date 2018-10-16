@@ -21,9 +21,8 @@ import datetime
 import fbchat 
 
 #########################telegram#########################
-#bot_token = '622777049:AAEmGczXqFjMD1Jkr0n9WOdRydfWIcj_slI'
-#bot_token = '662193904:AAHa_jprKD5GI1xU3K5Eqzs2GOYpf4GzHBI'
-bot_token = '662878959:AAFSf5bx_bbKH99Bbz-x7SuYPu59R4FY_wA'
+# Use your own telegram bot token here
+bot_token = '' 
 bot = telegram.Bot(token=bot_token)
 #bot credential
 print(bot.get_me())
