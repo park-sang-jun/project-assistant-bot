@@ -4,8 +4,9 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import InlineQueryHandler
 import logging
+
 # other modules
-from googlesearch import search  # pip3 install google
+#from googlesearch import search  # pip3 install google
 from newsplease import NewsPlease  # pip3 install news-please
 import requests
 from urllib.parse import urlparse
@@ -17,12 +18,16 @@ import time
 import re
 import spacy # pip3 install -U spacy | python -m spacy download en
 import datetime
+import fbchat 
 
 #########################telegram#########################
+#bot_token = '622777049:AAEmGczXqFjMD1Jkr0n9WOdRydfWIcj_slI'
+#bot_token = '662193904:AAHa_jprKD5GI1xU3K5Eqzs2GOYpf4GzHBI'
 bot_token = '662878959:AAFSf5bx_bbKH99Bbz-x7SuYPu59R4FY_wA'
 bot = telegram.Bot(token=bot_token)
 #bot credential
-#print(bot.get_me())
+print(bot.get_me())
+
 #setting up updater & dispatcher
 updater = Updater(token=bot_token)
 dispatcher = updater.dispatcher
@@ -35,7 +40,7 @@ def start(bot, update):
 
 #return /"unknown" is queried
 def unknown(bot, update):
-    	bot.send_message(chat_id=update.message.chat_id, text="Sorry, I didn't understand that command.")
+    	bot.send_message(chat_id=update.message.chat_id, text="I didn't understand that command. Try /help for commands")
 '''
 functions requiring googling is abandoned
 reasons: 
@@ -51,6 +56,9 @@ def google(bot, update, args):
 	bot.send_message(chat_id=update.message.chat_id, text=filtered_list)
 	print(query)
 '''
+###reminder
+
+
 #return defintion ***need to implement check word ==1
 def define(bot, update, args):
 	word = ' '.join(args)
@@ -65,7 +73,7 @@ def rdisplay(bot, update, args):
 		bot.send_message(chat_id=update.message.chat_id, text="Unable to access the URL")
 	elif(raw_content == "0"):	
 		bot.send_message(chat_id=update.message.chat_id, text="No content is read")
-	elif(raw_content == None):	
+	elif(raw_content == None or raw_content == ""):	
 		bot.send_message(chat_id=update.message.chat_id, text="Unable to retrive content: Perhaps it's too long")
 	else:
 		if(title == "0"):
@@ -77,12 +85,15 @@ def rdisplay(bot, update, args):
 #return available functions
 def help(bot, update):
 	bot.send_message(chat_id=update.message.chat_id, text="Here are the commands you can use: "
-								"\n /start to start the bot \n "
-								"/google to google things \n"
-								"/define to get the definition of a word \n"
+								"\n /start: Greetings \n "
+								"/define 'word': Get the definition of a word \n"
+								"/display 'link': Display the content of the link\n"
+								"/mla 'links': Display the APA citation of the links\n"
+								"/apa 'links': Display the APA citation of the links\n"
+								"/sum 'link': Summarize the content of the link"
+								"/csum 'integer' 'link': Summarize the content of the link as near to the interger given\n"
+								"/cross 'links': Try cross-referencing links to check potential reliabilty\n"
 								"/help to display all commands")
-
-#similarity check
 
 
 ###raw text from url summary
@@ -105,7 +116,8 @@ def summary(bot, update, args):
 			bot.send_message(chat_id=update.message.chat_id, text="Fail to summarize: Perhaps your content is too short or using too big chunk sentence(s)")
 		else:
 			#prevent overflooding
-			text_splitter(bot, update, analysed_text)
+			#text_splitter(bot, update, analysed_text)
+			bot.send_message(chat_id=update.message.chat_id, text=analysed_text)
 			data_text = "\nOriginal Length: " + str(original_len) + "words\nSummary length: " + str(summarised_len) + "words\nProportion from original length:" + str(summarised_len/original_len)
 			bot.send_message(chat_id=update.message.chat_id, text=data_text)
 
@@ -128,7 +140,8 @@ def csummary(bot, update, args):
 			bot.send_message(chat_id=update.message.chat_id, text="Fail to summarize: Perhaps your content is too short or using too big chunk sentence(s)")
 		else:
 			#prevent overflooding
-			text_splitter(bot, update, analysed_text)
+			#text_splitter(bot, update, analysed_text)
+			bot.send_message(chat_id=update.message.chat_id, text=analysed_text)
 			data_text = "\nOriginal Length: " + str(original_len) + " words\nSummary length: " + str(summarised_len) + " words\nProportion from original length:" + str(summarised_len/original_len)
 			bot.send_message(chat_id=update.message.chat_id, text=data_text)
 
@@ -151,7 +164,16 @@ def mla_citation(bot, update, args):
 	except:
 		bot.send_message(chat_id=update.message.chat_id, text="Pls try feeding less URL links")	
 
+#test and return potential reliable resources and test unreliable sources
+def cross(bot, update, args):
+	url_links =  ''.join(args)
+	url_links = url_links.split(",")
+	print(url_links)
+	result = analyse_similarity(url_links)
+	bot.send_message(chat_id=update.message.chat_id, text=result)
+
 #########################others#########################
+
 '''
 Define function requires wordnet
 If you are missing the wordnet,
@@ -165,6 +187,7 @@ def retrieve_url(query, number,query_list):
 	for url in search(query, stop=number):
 		query_list.append(url)
 '''
+
 #filter url + remove http to reduce biasness
 def urlFilter(lst):
     existingDomains = [];
@@ -258,11 +281,8 @@ def getmlaname(name):
 	mlaname = words[length - 1] + " "
 
 	for x in range(length - 1):
-		if x == length - 2:
-			mlaname += words[x]
-		else:
-			mlaname += words[x]
-			mlaname += " "
+		mlaname += words[x]
+		mlaname += " "
 	return(mlaname)
 
 #input and output list of APA format citations
@@ -326,6 +346,78 @@ def cosine_sim(str1,str2):
 	doc2 = nlp(str2)
 	return doc1.similarity(doc2)
 
+#combine jaccard_sim and cosine_sim
+def combined_sim(str1, str2):
+	#more weight on cosine similarity
+	threshold = 0.27
+	return threshold*jaccard_sim(str1, str2) + (1-threshold)*cosine_sim(str1,str2)
+
+#algorithm to analyse similarity  
+def analyse_similarity(url_links):
+	counter = 0
+	message = ""
+	maximum_no = len(url_links)
+	#initialize data list
+	data_list = [0 for x in range(maximum_no)] 
+	for url in url_links:	
+		title, content = extract_article(url)
+		if content == "0":
+			message = message + "Unable to access: " + url + "\n"
+		else:
+			data_list[counter] = content
+			counter+=1
+	#initialize 2d array
+	score_list = [[0 for x in range(maximum_no)] for y in range(maximum_no)]
+	maximum_score = 0
+	for x in range(counter):
+		for y in range(counter):
+			if score_list[y][x]==0 and x!=y:
+ 				score_list[x][y] = combined_sim(data_list[x],data_list[y])
+			else:
+				score_list[x][y] = score_list[y][x]
+			#replace max
+			if maximum_score < score_list[x][y]:
+				maximum_score = score_list[x][y]
+	print(score_list)
+	
+	###store satisfied data for final evaluations
+	satisfied_list = [0 for x in range(counter)]
+	#configure number to modify if needed	
+	min_threshold = 0.8
+	max_diff_threshold = 0.3
+	tolerable = 0.02
+	danger_set = set()
+	#in case min is too high	
+	if maximum_score < min_threshold:
+		min_threshold = maximum_score - tolerable
+	for x in range(counter):
+		for y in range(counter):
+			#keep track of satified_pairs
+			if score_list[x][y] > min_threshold:
+					satisfied_list[x] += 1
+
+	#considering the idea of maping many to many: multiple complete graphs  
+	winner_index = 0
+	for x in range(counter):
+		if satisfied_list[winner_index] < satisfied_list[x]:
+				winner_index = x
+	#run through winner array
+	message = message + "Threshold used: " + str(min_threshold) + "\nArticles with potential reliability:\n"
+	i = 1
+	for y in range(counter):
+		if score_list[winner_index][y] > min_threshold:
+			message = message + "[" +str(i) + "] " +url_links[y] + "\n"
+			i+=1
+		elif score_list[winner_index][y] < max_diff_threshold:
+			danger_set.add(y)
+
+	if len(danger_set) > 0:
+		message = message + "!Potentially unreliable source:\n"
+		for x in danger_set:
+			message = message +  "[" +str(i) + "] " +url_links[x] + "\n"
+
+	return message
+
 ###to prevent overflooding to telegram
 #split text 
 def text_splitter(bot, update, text):
@@ -379,8 +471,8 @@ def main():
 	define_handler = CommandHandler('define', define, pass_args=True)
 	dispatcher.add_handler(define_handler)
 
-	#cmd: /rdisplay | display raw content
-	rdisplay_handler = CommandHandler('rdisplay', rdisplay, pass_args=True)
+	#cmd: /display | display raw content
+	rdisplay_handler = CommandHandler('display', rdisplay, pass_args=True)
 	dispatcher.add_handler(rdisplay_handler)
 	
 	#cmd: /sum | summarize raw content from url
@@ -398,6 +490,11 @@ def main():
 	#cmd: /mla | construct MLA citation style
 	mla_handler = CommandHandler('mla', mla_citation, pass_args=True)
 	dispatcher.add_handler(mla_handler)
+	
+	#cmd: /cross | apply cross check using customized combination of algorithms 
+	cross_handler = CommandHandler('cross', cross, pass_args=True)
+	dispatcher.add_handler(cross_handler)
+
 
 	#cmd: /help | return available functions
 	help_handler = CommandHandler('help', help)
@@ -412,3 +509,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
